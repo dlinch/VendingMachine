@@ -26,9 +26,51 @@ protocol ItemType {
     var quantity: Double { get set }
 }
 
+// Error Types
+
+enum InventoryError: Error {
+    case InvalidResource
+    case ConversionError
+    case InvalidKey
+}
+
+
+// Helper Classes
+
+class PlistConverter {
+    class func dictionaryFromFile(resource: String, ofType type: String) throws -> [String: AnyObject]{
+        guard let path = Bundle.main.path(forResource: resource, ofType: type) else {
+            throw InventoryError.InvalidResource
+        }
+        
+        guard let dictionary = NSDictionary(contentsOfFile: path), let castDictionary = dictionary as? [String: AnyObject] else {
+            throw InventoryError.InvalidResource
+        }
+        return castDictionary
+    }
+}
+
+class InventoryUnarchiver {
+    class func vendingInventoryFromDictionary(dictionary: [String: AnyObject]) throws -> [VendingSelection: ItemType] {
+        
+        var inventory: [VendingSelection: ItemType] = [:]
+        for (key, value) in dictionary {
+            if let itemDict = value as? [String : Double], let price = itemDict["price"], let quantity = itemDict["quantity"] {
+                 let item = VendingItem(price: price, quantity: quantity)
+                guard let key = VendingSelection(rawValue: key) else {
+                    throw InventoryError.InvalidKey
+                }
+                inventory.updateValue(item, forKey: key)
+            }
+        }
+        return inventory
+    }
+}
+
+
 // Concrete Types
 
-enum VendingSelection {
+enum VendingSelection: String {
     case Soda
     case DietSoda
     case Chips
@@ -56,6 +98,7 @@ class VendingMachine: VendingMachineType {
     
     required init(inventory: [VendingSelection: ItemType]) {
         self.inventory = inventory
+
     }
     
     func vend(select: VendingSelection, quantity: Double) throws {
